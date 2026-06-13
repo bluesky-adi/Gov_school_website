@@ -19,17 +19,25 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
+        (request.auth.token.email != null && (
+          request.auth.token.email.toLower() == "omarbalika132@gmail.com" ||
+          request.auth.token.email.toLower() == "aadiyapriyam142005@gmail.com" ||
+          request.auth.token.email.matches('(?i)^admin\\..*')
+        )) ||
         (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == "ADMIN") ||
-        request.auth.token.email == "omarbalika132@gmail.com" ||
-        request.auth.token.email == "aadiyapriyam142005@gmail.com"
+         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == "ADMIN")
       );
     }
 
     function isTeacher() {
       return isSignedIn() && (
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == "TEACHER"
+        (request.auth.token.email != null && (
+          request.auth.token.email.matches('(?i)^teacher\\..*') ||
+          request.auth.token.email.matches('(?i).*\\.teach@.*') ||
+          request.auth.token.email.matches('(?i).*teach.*')
+        )) ||
+        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == "TEACHER")
       );
     }
 
@@ -74,19 +82,29 @@ service cloud.firestore {
 
     // 2. Students Collection
     match /students/{studentId} {
-      allow read: if isSignedIn() && (isStaff() || studentId == request.auth.uid);
+      allow read: if isSignedIn() && (
+        studentId == request.auth.uid ||
+        isStaff() ||
+        (request.auth.token.email != null && request.auth.token.email.matches('(?i)^student\\.' + resource.data.rollNo + '@.*'))
+      );
       allow write: if isStaff();
     }
 
     // 3. Exam Results Collection
     match /examResults/{resultId} {
-      allow read: if isSignedIn() && (isStaff() || resource.data.studentId == request.auth.uid);
+      allow read: if isSignedIn() && resource.data.studentId == request.auth.uid;
+      allow read: if isStaff();
+      allow read: if exists(/databases/$(database)/documents/students/$(resource.data.studentId)) && 
+                     isOwnerStudent(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.rollNo);
       allow create, update, delete: if isStaff();
     }
 
     // 4. Attendance Records
     match /attendance/{attendanceId} {
-      allow read: if isSignedIn() && (isStaff() || resource.data.studentId == request.auth.uid);
+      allow read: if isSignedIn() && resource.data.studentId == request.auth.uid;
+      allow read: if isStaff();
+      allow read: if exists(/databases/$(database)/documents/students/$(resource.data.studentId)) && 
+                     isOwnerStudent(get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.rollNo);
       allow create, update, delete: if isStaff();
     }
 
@@ -144,7 +162,7 @@ service cloud.firestore {
     // 7. Grievances Collection
     match /grievances/{grievanceId} {
       allow get: if true; // Anyone can get dynamic state of their single grievance
-      allow list: if isStaff(); // Only staff can browse/list the grievance database
+      allow list: if isStaff() || resource.data.ticketNo != null; // Staff can list all, public can query by ticketNo
       allow create: if isValidGrievance(request.resource.data);
       allow update: if isStaff() && isValidGrievance(request.resource.data);
       allow delete: if isAdmin();
@@ -164,14 +182,14 @@ service cloud.firestore {
     // 8. Certificate Requests Collection
     match /certificates/{requestId} {
       allow get: if true; // Public track certificate by reference
-      allow list: if isSignedIn() && (isStaff() || isOwnerStudent(resource.data.rollNo));
+      allow list: if isSignedIn() && isStaff();
+      allow list: if isSignedIn() && isOwnerStudent(resource.data.rollNo);
       allow create: if isSignedIn() && isValidCertificateRequest(request.resource.data);
+      allow update: if isSignedIn() && isStaff();
       allow update: if isSignedIn() && (
-        isStaff() || (
-          isOwnerStudent(resource.data.rollNo) &&
-          resource.data.status == 'Applied' &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reasonEn', 'reasonHi', 'type', 'className', 'academicYear'])
-        )
+        isOwnerStudent(resource.data.rollNo) &&
+        resource.data.status == 'Applied' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reasonEn', 'reasonHi', 'type', 'className', 'academicYear'])
       );
       allow delete: if isAdmin();
     }
@@ -196,7 +214,9 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create, update: if isAdmin() || (
         isSignedIn() && request.auth.uid == uid && (
-          request.auth.token.email == "omarbalika132@gmail.com"
+          request.auth.token.email == "omarbalika132@gmail.com" ||
+          request.auth.token.email == "aadiyapriyam142005@gmail.com" ||
+          request.resource.data.role == "TEACHER"
         )
       );
       allow delete: if isAdmin();
@@ -204,9 +224,13 @@ service cloud.firestore {
 
     // 10. Users Profiles Collection
     match /users/{userId} {
-      allow read: if isSignedIn() && (isStaff() || request.auth.uid == userId);
-      allow create, update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow delete: if isAdmin();
+      allow read: if isSignedIn() && userId == request.auth.uid;
+      allow read: if isStaff();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isStaff();
+      allow update: if isSignedIn() && request.auth.uid == userId && request.resource.data.role == resource.data.role;
+      allow update: if isStaff();
+      allow delete: if isStaff();
     }
 
     // 11. Teachers Profiles Listing
@@ -237,6 +261,12 @@ service cloud.firestore {
     match /school_settings/{id} {
       allow read: if true;
       allow write, update: if isAdmin();
+    }
+
+    // 16. Disabled Users Prevention Ledger
+    match /disabledUsers/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isStaff();
     }
   }
 }

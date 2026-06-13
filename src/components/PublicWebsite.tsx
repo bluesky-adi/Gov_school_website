@@ -43,6 +43,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({ activeView, setAct
     queryCertificateByReference,
     students,
     teachers,
+    examResults,
     schoolSettings
   } = useAppState();
 
@@ -231,25 +232,37 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({ activeView, setAct
             {[
               { 
                 label: listT.statsGirls, 
-                val: students && students.length > 0 ? `${students.length} Registered` : (language === 'en' ? '1,800+ Girls' : '1,800+ नामांकित'), 
+                val: students && students.filter(s => s.status !== 'Disabled' && s.status !== 'Transferred').length > 0 
+                  ? `${students.filter(s => s.status !== 'Disabled' && s.status !== 'Transferred').length} Registered` 
+                  : (language === 'en' ? '0 Girls Enrolled' : '0 छात्राएं नामांकित'), 
                 col: 'border-l-4 border-[#1A3A5C]',
                 isPending: false
               },
               { 
                 label: listT.statsTeachers, 
-                val: teachers && teachers.length > 4 ? `${teachers.length} Verified` : (language === 'en' ? '32 Verified Teachers' : '32 सत्यापित शिक्षक'), 
+                val: teachers && teachers.filter(t => t.status !== 'Disabled').length > 0 
+                  ? `${teachers.filter(t => t.status !== 'Disabled').length} Faculty` 
+                  : (language === 'en' ? '0 Verified' : '0 सत्यापित'), 
                 col: 'border-l-4 border-[#D4522A]',
                 isPending: false
               },
               { 
                 label: listT.statsRate, 
-                val: language === 'en' ? '96.6% Pass' : '96.6% उत्तीर्ण', 
+                val: examResults && examResults.length > 0
+                  ? `${Math.round((examResults.filter(r => r.resultStatus === 'PASS' || r.resultStatus === 'PROMOTED').length / examResults.length) * 100)}% Pass`
+                  : (language === 'en' ? 'No Exams Record' : 'कोई परीक्षा रिकॉर्ड नहीं'), 
                 col: 'border-l-4 border-[#2E7D32]',
                 isPending: false
               },
               { 
                 label: listT.statsDBT, 
-                val: language === 'en' ? '100% Sync' : '100% सत्यापित', 
+                val: (() => {
+                  const activeStuds = students ? students.filter(s => s.status !== 'Disabled') : [];
+                  if (activeStuds.length === 0) return language === 'en' ? 'No Accounts' : 'कोई खाता नहीं';
+                  const verifiedCount = activeStuds.filter(s => s.medhasoftStatus === 'Verified').length;
+                  const pct = Math.round((verifiedCount / activeStuds.length) * 100);
+                  return `${pct}% Sync`;
+                })(), 
                 col: 'border-l-4 border-amber-600',
                 isPending: false
               }
@@ -1210,6 +1223,7 @@ export const PublicWebsite: React.FC<PublicWebsiteProps> = ({ activeView, setAct
           {/* Directory Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {teachers && teachers
+              .filter(t => t.status !== 'Disabled')
               .filter(t => {
                 if (!noticeSearch.trim()) return true;
                 const matchEn = t.nameEn?.toLowerCase().includes(noticeSearch.toLowerCase());

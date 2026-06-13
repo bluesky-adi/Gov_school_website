@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   Language,
   UserRole,
@@ -32,8 +32,8 @@ import {
   INITIAL_GRIEVANCES,
   INITIAL_CERTIFICATE_REQUESTS
 } from './data.ts';
-import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs } from 'firebase/firestore';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updatePassword, signOut as firebaseSignOut, inMemoryPersistence, initializeAuth, getAuth } from 'firebase/auth';
+import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, updatePassword, signOut as firebaseSignOut, inMemoryPersistence, initializeAuth, getAuth, sendPasswordResetEmail } from 'firebase/auth';
 import { firedb, auth, handleFirestoreError, OperationType } from './firebase.ts';
 import { getApps, initializeApp } from 'firebase/app';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -95,6 +95,7 @@ interface AppContextType {
   logout: () => Promise<void>;
   isOnline: boolean;
   changeUserPassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  sendPasswordReset: (email: string) => Promise<void>;
   
   usersList: UserProfile[];
   manageUserCreate: (newProfile: Omit<UserProfile, "id"> & { status: "Active" | "Disabled"; createdBy: string; createdAt: string; password?: string }) => Promise<void>;
@@ -222,6 +223,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [certificates, setCertificates] = useState<CertificateRequest[]>(INITIAL_CERTIFICATE_REQUESTS);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
 
+  const teachersRef = useRef(teachers);
+  const studentsRef = useRef(students);
+  teachersRef.current = teachers;
+  studentsRef.current = students;
+
   // Connection Status listeners
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -335,42 +341,104 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Real Firebase Auth listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    let unsubSnapshot: (() => void) | null = null;
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Clean up previous user listener immediately to prevent zombie permission checks
+      if (unsubSnapshot) {
+        unsubSnapshot();
+        unsubSnapshot = null;
+      }
+
       if (firebaseUser) {
+        // Core Protection Ledger Check: Ensure user is not disabled/deleted
+        try {
+          const disabledRef = doc(firedb, 'disabledUsers', firebaseUser.uid);
+          const disabledSnap = await getDoc(disabledRef).catch(() => null);
+          if (disabledSnap && disabledSnap.exists() && disabledSnap.data()?.status === 'deleted') {
+            console.warn("Deleted User Attempt Blocked: Resurrecting prevention activated");
+            await firebaseSignOut(auth);
+            setUserState(null);
+            return;
+          }
+        } catch (ledgerErr) {
+          console.error("Ledger query error:", ledgerErr);
+        }
+
         const userDocRef = doc(firedb, 'users', firebaseUser.uid);
-        const unsubSnapshot = onSnapshot(userDocRef, (userDoc) => {
+        unsubSnapshot = onSnapshot(userDocRef, async (userDoc) => {
           if (userDoc.exists()) {
             setUserState(userDoc.data() as UserProfile);
           } else {
             // Self-healing bootstrap if doc missing
-            const isPrincipalEmail = firebaseUser.email === 'omarbalika132@gmail.com' || firebaseUser.email === 'aadiyapriyam142005@gmail.com';
+            const email = (firebaseUser.email || '').toLowerCase();
+            const isPrincipalEmail = email === 'omarbalika132@gmail.com' || email === 'aadiyapriyam142005@gmail.com' || email.startsWith('admin.');
+            const isTeacherEmail = email.startsWith('teacher.') || email.includes('.teach') || teachersRef.current.some(t => t.email?.toLowerCase() === email);
+            const isStudentEmail = email.startsWith('student.') || studentsRef.current.some(s => s.email?.toLowerCase() === email);
+
+            let detectedRole = UserRole.VISITOR;
+            let nameEn = firebaseUser.displayName || 'Guest Visitor';
+            let nameHi = 'अतिथि आगंतुक';
+            let rollNo: string | undefined;
+
+            if (isPrincipalEmail) {
+              detectedRole = UserRole.ADMIN;
+              nameEn = 'Principal Admin';
+              nameHi = 'प्रशासक';
+            } else if (isTeacherEmail) {
+              detectedRole = UserRole.TEACHER;
+              nameEn = 'Teacher / Staff';
+              nameHi = 'शिक्षक / कर्मचारी';
+            } else if (isStudentEmail) {
+              detectedRole = UserRole.STUDENT;
+              nameEn = 'Student';
+              nameHi = 'छात्रा';
+              const localPart = email.split('@')[0];
+              rollNo = localPart.replace('student.', '').trim().toUpperCase();
+            }
+
             const bootstrapProfile: UserProfile = {
               id: firebaseUser.uid,
-              role: isPrincipalEmail ? UserRole.ADMIN : UserRole.VISITOR,
-              nameEn: firebaseUser.displayName || 'Guest Visitor',
-              nameHi: 'अतिथि आगंतुक',
-              email: firebaseUser.email || undefined
+              role: detectedRole,
+              nameEn,
+              nameHi,
+              email: firebaseUser.email || undefined,
+              rollNo,
+              forcePasswordChange: true,
+              status: 'Active'
             };
-            setUserState(bootstrapProfile);
-            setDoc(userDocRef, bootstrapProfile).catch(err => console.error("Profile write error:", err));
-            if (isPrincipalEmail) {
-              setDoc(doc(firedb, 'admins', firebaseUser.uid), {
-                uid: firebaseUser.uid,
-                role: 'ADMIN',
-                permissions: ['all']
-              }).catch(err => console.error("Admin write error:", err));
+
+            try {
+              // Write administrative rules/privileges FIRST and wait
+              if (detectedRole === UserRole.ADMIN || detectedRole === UserRole.TEACHER) {
+                await setDoc(doc(firedb, 'admins', firebaseUser.uid), {
+                  uid: firebaseUser.uid,
+                  role: detectedRole === UserRole.ADMIN ? 'ADMIN' : 'TEACHER',
+                  permissions: detectedRole === UserRole.ADMIN ? ['all'] : ['grades', 'attendance', 'homework']
+                });
+              }
+              // Write unified profile SECOND and wait
+              await setDoc(userDocRef, bootstrapProfile);
+              // Set the active user profile locally ONLY after Firestore has settled
+              setUserState(bootstrapProfile);
+            } catch (err) {
+              console.error("Error executing self-healing write:", err);
             }
           }
         }, (err) => {
-          console.error("User doc read denied or error:", err);
+          console.warn("User doc read denied or error (expected during handshakes):", err);
         });
-        return () => unsubSnapshot();
       } else {
         setUserState(null);
       }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      if (unsubSnapshot) {
+        unsubSnapshot();
+      }
+    };
   }, []);
 
   // --- FIRESTORE SUBSCRIPTIONS AND AUTO-SEEDING EFFECTS ---
@@ -379,6 +447,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(firedb, 'notices'), (snapshot) => {
       if (snapshot.empty) {
+        setNotices(INITIAL_NOTICES);
         if (user && (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER)) {
           INITIAL_NOTICES.forEach(async (item) => {
             try {
@@ -549,6 +618,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(firedb, 'homework'), (snapshot) => {
       if (snapshot.empty) {
+        setHomework(INITIAL_HOMEWORK);
         // Only seed if collection is completely empty and user has write permissions
         if (user && (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER)) {
           INITIAL_HOMEWORK.forEach(async (item) => {
@@ -577,6 +647,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(firedb, 'studyMaterials'), (snapshot) => {
       if (snapshot.empty) {
+        setStudyMaterials(INITIAL_STUDY_MATERIALS);
         // Only seed if collection is completely empty and user has write permissions
         if (user && (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER)) {
           INITIAL_STUDY_MATERIALS.forEach(async (item) => {
@@ -673,6 +744,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(firedb, 'teachers'), (snapshot) => {
       if (snapshot.empty) {
+        setTeachers(INITIAL_TEACHERS);
         if (user && (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER)) {
           INITIAL_TEACHERS.forEach(async (item) => {
             try {
@@ -699,6 +771,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(firedb, 'timetable'), (snapshot) => {
       if (snapshot.empty) {
+        setTimetable(INITIAL_TIMETABLE);
         if (user && (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER)) {
           INITIAL_TIMETABLE.forEach(async (item) => {
             try {
@@ -725,6 +798,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(firedb, 'books'), (snapshot) => {
       if (snapshot.empty) {
+        setBooks(INITIAL_BOOKS);
         if (user && (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER)) {
           INITIAL_BOOKS.forEach(async (item) => {
             try {
@@ -751,6 +825,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(firedb, 'schemes'), (snapshot) => {
       if (snapshot.empty) {
+        setSchemes(SCHOLARSHIPS_AND_SCHEMES);
         if (user && (user.role === UserRole.ADMIN || user.role === UserRole.TEACHER)) {
           SCHOLARSHIPS_AND_SCHEMES.forEach(async (item) => {
             try {
@@ -825,47 +900,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         nameHi = 'प्रशासक';
       } else if (role === UserRole.TEACHER) {
         if (!identifier) {
-          return language === 'en' ? 'Teacher Email or ID is required.' : 'शिक्षक ईमेल या आईडी आवश्यक है।';
+          return language === 'en' ? 'Teacher Email is required.' : 'शिक्षक ईमेल आवश्यक है।';
         }
         const cleanId = identifier.trim();
-        const teacher = teachers.find(t => t.id === cleanId || t.email === cleanId);
-        if (cleanId.includes('@')) {
-          email = cleanId;
-        } else if (teacher && teacher.email) {
-          email = teacher.email;
-        } else {
-          email = `teacher.${cleanId.toLowerCase()}@omarbalika132.edu.in`;
-        }
+        email = cleanId;
         password = password || 'TeacherPass123';
+        
+        const teacher = teachers.find(t => t.email?.toLowerCase() === email.toLowerCase());
         if (teacher) {
           nameEn = teacher.nameEn;
           nameHi = teacher.nameHi;
         } else {
-          nameEn = `Teacher ${cleanId}`;
-          nameHi = `शिक्षक ${cleanId}`;
+          nameEn = `Teacher ${email.split('@')[0]}`;
+          nameHi = `शिक्षक ${email.split('@')[0]}`;
         }
       } else if (role === UserRole.STUDENT) {
         if (!identifier) {
           return language === 'en' 
-            ? 'Admission / Roll Number is required.' 
-            : 'नामांकन / रोल नंबर दर्ज करना अनिवार्य है।';
+            ? 'Student Email is required.' 
+            : 'छात्र ईमेल आवश्यक है।';
         }
         const cleanId = identifier.trim();
-        const student = students.find(s => s.rollNo === cleanId || s.id === cleanId);
-        
-        rollNo = student ? student.rollNo : cleanId;
-        admissionNo = student ? (student.id || cleanId) : `ADM-2024-${cleanId}`;
-        email = `student.${rollNo.toLowerCase()}@omarbalika132.edu.in`;
+        email = cleanId;
         password = password || 'StudentPass123';
         
+        const student = students.find(s => s.email?.toLowerCase() === email.toLowerCase());
         if (student) {
+          rollNo = student.rollNo;
+          admissionNo = student.id;
           nameEn = student.nameEn;
           nameHi = student.nameHi;
           className = student.className;
           section = student.section;
         } else {
-          nameEn = `Student Roll ${rollNo}`;
-          nameHi = `छात्रा रोल ${rollNo}`;
+          nameEn = `Student ${email.split('@')[0]}`;
+          nameHi = `छात्रा ${email.split('@')[0]}`;
         }
       }
 
@@ -904,9 +973,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...(rollNo && { rollNo, className, section, admissionNo })
         };
 
-        await setDoc(doc(firedb, 'users', firebaseUser.uid), profile, { merge: true });
-
-        // Provision administrative privileges inside Firestore /admins collection
+        // 1. Provision administrative privileges inside Firestore /admins collection FIRST
         if (role === UserRole.ADMIN || role === UserRole.TEACHER) {
           await setDoc(doc(firedb, 'admins', firebaseUser.uid), {
             uid: firebaseUser.uid,
@@ -914,6 +981,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             permissions: role === UserRole.ADMIN ? ['all'] : ['grades', 'attendance', 'homework']
           }, { merge: true });
         }
+
+        // 1b. If TEACHER, construct a matching specialized record in /teachers collection
+        if (role === UserRole.TEACHER) {
+          await setDoc(doc(firedb, 'teachers', firebaseUser.uid), {
+            id: firebaseUser.uid,
+            nameEn,
+            nameHi,
+            email,
+            designationEn: 'Lecturer',
+            designationHi: 'व्याख्याता',
+            qualificationEn: 'M.A., B.Ed, Teacher',
+            qualificationHi: 'एम.ए., बी.एड, शिक्षक',
+            subjectsEn: ['General Science/Arts'],
+            subjectsHi: ['सामान्य विज्ञान/कला']
+          }, { merge: true });
+        }
+
+        // 1c. If STUDENT, construct a matching specialized record in /students collection
+        if (role === UserRole.STUDENT) {
+          await setDoc(doc(firedb, 'students', firebaseUser.uid), {
+            id: firebaseUser.uid,
+            rollNo: rollNo || `roll-${firebaseUser.uid.slice(-6)}`,
+            nameEn,
+            nameHi,
+            className: className || 'Class IX',
+            section: section || 'A',
+            fatherNameEn: 'S/O ' + nameEn,
+            fatherNameHi: 'पिता का नाम',
+            motherNameEn: 'M/O ' + nameEn,
+            motherNameHi: 'माता का नाम',
+            dob: '2011-01-01',
+            category: 'General',
+            bankAccountLast4: '0000',
+            ifscCode: 'BKID0004655',
+            medhasoftStatus: 'Verified',
+            dbtPaymentStatus: 'Payment Sent',
+            status: 'Active'
+          }, { merge: true });
+        }
+
+        // 2. Construct and cache profile document in active /users collection SECOND
+        await setDoc(doc(firedb, 'users', firebaseUser.uid), profile, { merge: true });
         return null; // Successful login
       }
 
@@ -954,6 +1063,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const sendPasswordReset = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (e: any) {
+      console.error("Password reset failure:", e);
+      throw e;
+    }
+  };
+
   // Board Notice Management
   const addNotice = async (newNotice: Omit<Notice, 'id' | 'publishedDate'>) => {
     const today = new Date().toISOString().split('T')[0];
@@ -981,7 +1099,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Student Admin Actions
   const updateStudentDBT = async (id: string, medhasoftStatus: any, dbtPaymentStatus: any) => {
     try {
-      await updateDoc(doc(firedb, 'students', id), { medhasoftStatus, dbtPaymentStatus });
+      const updates: any = {};
+      if (medhasoftStatus !== undefined) updates.medhasoftStatus = medhasoftStatus;
+      if (dbtPaymentStatus !== undefined) updates.dbtPaymentStatus = dbtPaymentStatus;
+      if (Object.keys(updates).length > 0) {
+        await updateDoc(doc(firedb, 'students', id), updates);
+      }
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `students/${id}`);
     }
@@ -1006,7 +1129,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addStudent = async (student: Omit<StudentProfile, 'id'>) => {
-    const loginEmail = `student.${student.rollNo.toLowerCase()}@omarbalika132.edu.in`;
+    const loginEmail = student.email || `student.${student.rollNo.toLowerCase()}@omarbalika132.edu.in`;
     const defaultPassword = parseDobToPassword(student.dob);
     let uid: string;
     try {
@@ -1018,6 +1141,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newStudent: StudentProfile = {
       ...student,
+      email: loginEmail,
       id: uid
     };
 
@@ -1038,7 +1162,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         admissionNo: student.rollNo,
         dob: student.dob,
         forcePasswordChange: true,
-        status: 'Active'
+        status: student.status || 'Active'
       };
       await setDoc(doc(firedb, 'users', uid), userProfile);
     } catch (e) {
@@ -1048,7 +1172,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateStudent = async (id: string, student: Partial<StudentProfile>) => {
     try {
-      await updateDoc(doc(firedb, 'students', id), student);
+      const cleanStudent: any = {};
+      Object.entries(student).forEach(([key, value]) => {
+        if (value !== undefined) {
+          cleanStudent[key] = value;
+        }
+      });
+      await updateDoc(doc(firedb, 'students', id), cleanStudent);
+
+      // Deep Sync of general fields to unified users collection
+      const syncFields: any = {};
+      if (student.nameEn !== undefined) syncFields.nameEn = student.nameEn;
+      if (student.nameHi !== undefined) syncFields.nameHi = student.nameHi;
+      if (student.email !== undefined) syncFields.email = student.email;
+      if (student.dob !== undefined) syncFields.dob = student.dob;
+      if (student.rollNo !== undefined) syncFields.rollNo = student.rollNo;
+      if (student.className !== undefined) syncFields.className = student.className;
+      if (student.section !== undefined) syncFields.section = student.section;
+      if (student.status !== undefined) syncFields.status = student.status;
+
+      if (Object.keys(syncFields).length > 0) {
+        await updateDoc(doc(firedb, 'users', id), syncFields).catch(() => {});
+      }
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `students/${id}`);
     }
@@ -1056,6 +1201,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteStudent = async (id: string) => {
     try {
+      const s = students.find(item => item.id === id);
+      const email = s ? `student.${s.rollNo.toLowerCase()}@omarbalika132.edu.in` : '';
+      await setDoc(doc(firedb, 'disabledUsers', id), {
+        id,
+        email,
+        role: UserRole.STUDENT,
+        status: 'deleted',
+        deletedAt: new Date().toISOString()
+      });
+
       await deleteDoc(doc(firedb, 'students', id));
       await deleteDoc(doc(firedb, 'users', id)).catch(() => {});
     } catch (e) {
@@ -1337,7 +1492,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const manageUserUpdate = async (id: string, updates: Partial<UserProfile & { status: string }>) => {
     try {
-      await updateDoc(doc(firedb, 'users', id), updates);
+      const cleanUpdates: any = {};
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value !== undefined) {
+          cleanUpdates[key] = value;
+        }
+      });
+      await updateDoc(doc(firedb, 'users', id), cleanUpdates);
+
+      // Deep Sync of general fields to teachers or students specialized collections
+      const syncFields: any = {};
+      if (updates.nameEn) syncFields.nameEn = updates.nameEn;
+      if (updates.nameHi) syncFields.nameHi = updates.nameHi;
+      if (updates.email) syncFields.email = updates.email;
+      if (updates.dob) syncFields.dob = updates.dob;
+      if (updates.rollNo) syncFields.rollNo = updates.rollNo;
+      if (updates.className) syncFields.className = updates.className;
+      if (updates.section) syncFields.section = updates.section;
+      if (updates.status) syncFields.status = updates.status;
+
+      if (Object.keys(syncFields).length > 0) {
+        await updateDoc(doc(firedb, 'teachers', id), syncFields).catch(() => {});
+        await updateDoc(doc(firedb, 'students', id), syncFields).catch(() => {});
+      }
+
       if (updates.role) {
         if (updates.role === UserRole.ADMIN || updates.role === UserRole.TEACHER) {
           await setDoc(doc(firedb, 'admins', id), {
@@ -1356,6 +1534,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const manageUserDelete = async (id: string) => {
     try {
+      const matchU = usersList.find(u => u.id === id);
+      await setDoc(doc(firedb, 'disabledUsers', id), {
+        id,
+        email: matchU?.email || '',
+        role: matchU?.role || '',
+        status: 'deleted',
+        deletedAt: new Date().toISOString()
+      });
+
       await deleteDoc(doc(firedb, 'users', id));
       await deleteDoc(doc(firedb, 'admins', id)).catch(() => {});
       await deleteDoc(doc(firedb, 'teachers', id)).catch(() => {});
@@ -1429,7 +1616,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateTeacher = async (id: string, teacher: Partial<TeacherProfile>) => {
     try {
-      await updateDoc(doc(firedb, 'teachers', id), teacher);
+      const cleanTeacher: any = {};
+      Object.entries(teacher).forEach(([key, value]) => {
+        if (value !== undefined) {
+          cleanTeacher[key] = value;
+        }
+      });
+      await updateDoc(doc(firedb, 'teachers', id), cleanTeacher);
+
+      // Deep Sync of general fields to unified users collection
+      const syncFields: any = {};
+      if (teacher.nameEn !== undefined) {
+        syncFields.nameEn = teacher.nameEn;
+        syncFields.nameHi = teacher.nameHi || teacher.nameEn;
+      } else if (teacher.nameHi !== undefined) {
+        syncFields.nameHi = teacher.nameHi;
+      }
+      if (teacher.email !== undefined) syncFields.email = teacher.email;
+      if (teacher.status !== undefined) syncFields.status = teacher.status;
+
+      if (Object.keys(syncFields).length > 0) {
+        await updateDoc(doc(firedb, 'users', id), syncFields).catch(() => {});
+      }
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `teachers/${id}`);
     }
@@ -1437,6 +1645,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteTeacher = async (id: string) => {
     try {
+      const t = teachers.find(item => item.id === id);
+      await setDoc(doc(firedb, 'disabledUsers', id), {
+        id,
+        email: t?.email || '',
+        role: UserRole.TEACHER,
+        status: 'deleted',
+        deletedAt: new Date().toISOString()
+      });
+
       await deleteDoc(doc(firedb, 'teachers', id));
       await deleteDoc(doc(firedb, 'users', id)).catch(() => {});
       await deleteDoc(doc(firedb, 'admins', id)).catch(() => {});
@@ -1550,6 +1767,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logout,
         isOnline,
         changeUserPassword,
+        sendPasswordReset,
         adminTab,
         setAdminTab,
         usersList,

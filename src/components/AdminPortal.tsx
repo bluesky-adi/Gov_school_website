@@ -27,6 +27,7 @@ export const AdminPortal: React.FC = () => {
     manageUserCreate,
     manageUserUpdate,
     manageUserDelete,
+    sendPasswordReset,
 
     // Teachers CMS
     teachers,
@@ -186,6 +187,7 @@ export const AdminPortal: React.FC = () => {
   const [studentFormOpen, setStudentFormOpen] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [studRollNo, setStudRollNo] = useState('');
+  const [studEmail, setStudEmail] = useState('');
   const [studNameEn, setStudNameEn] = useState('');
   const [studNameHi, setStudNameHi] = useState('');
   const [studClassName, setStudClassName] = useState<'Class IX' | 'Class X' | 'Class XI' | 'Class XII'>('Class IX');
@@ -1276,23 +1278,23 @@ export const AdminPortal: React.FC = () => {
                           </button>
                           <button
                             onClick={async () => {
-                              await manageUserUpdate(usr.id, { password: 'PassResetDefault123' });
-                              alert(`Successfully reset passcode to standard default credentials ("PassResetDefault123") for ${usr.nameEn}.`);
+                              try {
+                                if (usr.email) {
+                                  await sendPasswordReset(usr.email);
+                                  await manageUserUpdate(usr.id, { password: 'PassResetDefault123' });
+                                  alert(`Successfully triggered real Firebase reset via sendPasswordResetEmail() for ${usr.email}! Instructions sent.`);
+                                } else {
+                                  alert("Cannot reset password: User profile has no email address.");
+                                }
+                              } catch (err: any) {
+                                alert(`Failed to send password reset: ${err.message}`);
+                              }
                             }}
                             className="px-2 py-1 bg-[#1A3A5C] text-white text-[10px] font-mono font-bold rounded"
                           >
                             Reset Pass
                           </button>
-                          <button
-                            onClick={async () => {
-                              if(confirm(`Irreversible Action: Confirmed deletion of ${usr.nameEn}?`)) {
-                                await manageUserDelete(usr.id);
-                              }
-                            }}
-                            className="p-1 px-1.5 bg-red-600 text-white rounded hover:bg-red-700 font-bold"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 inline-block" />
-                          </button>
+                          {/* Physical deletion removed per soft-disable security policy */}
                         </td>
                       </tr>
                     ))}
@@ -1590,9 +1592,16 @@ export const AdminPortal: React.FC = () => {
                       <div className="space-y-1">
                         <div className="flex justify-between items-start">
                           <p className="font-bold text-[#1A3A5C] text-sm">{language === 'en' ? t.nameEn : t.nameHi}</p>
-                          <span className="px-1.5 py-0.5 bg-neutral-200 text-neutral-800 text-[9px] font-mono rounded font-bold uppercase">
-                            Teacher
-                          </span>
+                          <div className="flex gap-1.5">
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase ${
+                              t.status === 'Disabled' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-[#2E7D32]'
+                            }`}>
+                              {t.status || 'Active'}
+                            </span>
+                            <span className="px-1.5 py-0.5 bg-neutral-200 text-neutral-800 text-[9px] font-mono rounded font-bold uppercase">
+                              Teacher
+                            </span>
+                          </div>
                         </div>
                         <p className="font-mono text-[10px] text-zinc-500 font-bold">
                           💼 {language === 'en' ? t.designationEn : t.designationHi}
@@ -1627,17 +1636,31 @@ export const AdminPortal: React.FC = () => {
                         >
                           Edit
                         </button>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if(confirm(`Delete faculty member ${t.nameEn}?`)) {
-                              await deleteTeacher(t.id);
-                            }
-                          }}
-                          className="px-2.5 py-1 bg-red-100 font-bold font-mono text-[10px] text-red-700 hover:bg-red-200 rounded"
-                        >
-                          Delete
-                        </button>
+                        {t.status === 'Disabled' ? (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (confirm(`Enable faculty member ${t.nameEn}?`)) {
+                                await updateTeacher(t.id, { status: 'Active' });
+                              }
+                            }}
+                            className="px-2.5 py-1 bg-green-150 font-bold font-mono text-[10px] text-green-700 hover:bg-green-200 rounded"
+                          >
+                            Enable
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (confirm(`Disable faculty member ${t.nameEn}?`)) {
+                                await updateTeacher(t.id, { status: 'Disabled' });
+                              }
+                            }}
+                            className="px-2.5 py-1 bg-red-100 font-bold font-mono text-[10px] text-red-700 hover:bg-red-200 rounded"
+                          >
+                            Disable
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1658,6 +1681,7 @@ export const AdminPortal: React.FC = () => {
                         onClick={() => {
                           setEditingStudentId(null);
                           setStudRollNo('');
+                          setStudEmail('');
                           setStudNameEn('');
                           setStudNameHi('');
                           setStudClassName('Class IX');
@@ -1686,6 +1710,7 @@ export const AdminPortal: React.FC = () => {
                         if (editingStudentId) {
                           setEditingStudentId(null);
                           setStudRollNo('');
+                          setStudEmail('');
                           setStudNameEn('');
                           setStudNameHi('');
                           setStudClassName('Class IX');
@@ -1717,6 +1742,7 @@ export const AdminPortal: React.FC = () => {
 
                     const studentData = {
                       rollNo: studRollNo,
+                      email: studEmail,
                       nameEn: studNameEn,
                       nameHi: studNameHi || studNameEn,
                       className: studClassName,
@@ -1742,6 +1768,7 @@ export const AdminPortal: React.FC = () => {
 
                     // Reset form
                     setStudRollNo('');
+                    setStudEmail('');
                     setStudNameEn('');
                     setStudNameHi('');
                     setStudClassName('Class IX');
@@ -1769,6 +1796,16 @@ export const AdminPortal: React.FC = () => {
                           value={studRollNo}
                           onChange={(e) => setStudRollNo(e.target.value)}
                           placeholder="e.g. 102"
+                          className="w-full p-2 border rounded font-mono bg-white text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-600 font-bold mb-1">Student Email (Login ID)</label>
+                        <input
+                          type="email"
+                          value={studEmail}
+                          onChange={(e) => setStudEmail(e.target.value)}
+                          placeholder="e.g. student.name@omarbalika132.edu.in"
                           className="w-full p-2 border rounded font-mono bg-white text-xs"
                         />
                       </div>
@@ -2010,6 +2047,7 @@ export const AdminPortal: React.FC = () => {
                                 onClick={() => {
                                   setEditingStudentId(s.id);
                                   setStudRollNo(s.rollNo);
+                                  setStudEmail(s.email || '');
                                   setStudNameEn(s.nameEn);
                                   setStudNameHi(s.nameHi || '');
                                   setStudClassName(s.className);
@@ -2043,28 +2081,31 @@ export const AdminPortal: React.FC = () => {
                               >
                                 Transfer
                               </button>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  if (confirm(`Disable record profile of student ${s.nameEn}?`)) {
-                                    await updateStudent(s.id, { status: 'Disabled' });
-                                  }
-                                }}
-                                className="px-2 py-0.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded text-[10px]"
-                              >
-                                Disable
-                              </button>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  if (confirm(`Irreversible Action: Wipe out student ${s.nameEn} from permanent database ledger?`)) {
-                                    await deleteStudent(s.id);
-                                  }
-                                }}
-                                className="px-2 py-0.5 bg-red-600 hover:bg-red-700 text-white rounded text-[10px]"
-                              >
-                                Wipe
-                              </button>
+                              {s.status === 'Disabled' ? (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (confirm(`Enable student record profile for ${s.nameEn}?`)) {
+                                      await updateStudent(s.id, { status: 'Active' });
+                                    }
+                                  }}
+                                  className="px-2 py-0.5 bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded text-[10px]"
+                                >
+                                  Enable
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (confirm(`Disable record profile of student ${s.nameEn}?`)) {
+                                      await updateStudent(s.id, { status: 'Disabled' });
+                                    }
+                                  }}
+                                  className="px-2 py-0.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded text-[10px]"
+                                >
+                                  Disable
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))}

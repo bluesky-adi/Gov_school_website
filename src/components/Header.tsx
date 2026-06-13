@@ -10,7 +10,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onNavigatePortal, activeView, setActiveView }) => {
-  const { language, toggleLanguage, user, logout, loginAs, schoolSettings, isAdminCreated, bootstrapFirstAdmin } = useAppState();
+  const { language, toggleLanguage, user, logout, loginAs, schoolSettings, isAdminCreated, bootstrapFirstAdmin, sendPasswordReset } = useAppState();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.STUDENT);
@@ -33,8 +33,8 @@ export const Header: React.FC<HeaderProps> = ({ onNavigatePortal, activeView, se
     grievances: language === 'en' ? 'Grievance' : 'शिकायत निवारण',
     certificates: language === 'en' ? 'Certificates' : 'प्रमाण पत्र केंद्र',
     loginTitle: language === 'en' ? 'Secure Student / Staff Login' : 'सुरक्षित विद्यार्थी / कर्मचारी लॉगिन',
-    rollPlaceholder: language === 'en' ? 'Enter Admission Number / Roll No' : 'नामांकन संख्या / रोल नंबर दर्ज करें',
-    teacherPlaceholder: language === 'en' ? 'Enter Teacher ID (e.g., t1)' : 'शिक्षक आईडी दर्ज करें (जैसे, t1)',
+    rollPlaceholder: language === 'en' ? 'Enter Student Email (e.g. student.priya@omarbalika132.edu.in)' : 'छात्रा ईमेल दर्ज करें (जैसे student.priya@omarbalika132.edu.in)',
+    teacherPlaceholder: language === 'en' ? 'Enter Teacher Email (e.g. teacher. nodal@omarbalika132.edu.in)' : 'शिक्षक ईमेल दर्ज करें (जैसे teacher.nodal@omarbalika132.edu.in)',
     adminPlaceholder: language === 'en' ? 'Enter Admin Email' : 'प्रशासक ईमेल दर्ज करें',
     loginBtn: language === 'en' ? 'Enter Portal' : 'पोर्टल में प्रवेश करें',
     guestBtn: language === 'en' ? 'Visitor Guest Entrance' : 'आगंतुक प्रवेश',
@@ -420,12 +420,12 @@ export const Header: React.FC<HeaderProps> = ({ onNavigatePortal, activeView, se
                   <div className="space-y-3">
                     <div>
                       <label className="block text-xs font-bold text-gray-700 mb-1">
-                        {selectedRole === UserRole.STUDENT && (language === 'en' ? 'Admission / Roll No' : 'प्रवेश संख्या / रोल नंबर')}
-                        {selectedRole === UserRole.TEACHER && (language === 'en' ? 'Teacher ID' : 'शिक्षक आईडी')}
+                        {selectedRole === UserRole.STUDENT && (language === 'en' ? 'Student Email' : 'छात्रा ईमेल')}
+                        {selectedRole === UserRole.TEACHER && (language === 'en' ? 'Teacher Email' : 'शिक्षक ईमेल')}
                         {selectedRole === UserRole.ADMIN && (language === 'en' ? 'Admin Email' : 'प्रशासक ईमेल')}
                       </label>
                       <input
-                        type={selectedRole === UserRole.ADMIN ? "email" : "text"}
+                        type="email"
                         value={inputIdentifier}
                         onChange={(e) => setInputIdentifier(e.target.value)}
                         placeholder={
@@ -441,6 +441,26 @@ export const Header: React.FC<HeaderProps> = ({ onNavigatePortal, activeView, se
                     <div>
                       <label className="block text-xs font-bold text-gray-700 mb-1 flex justify-between items-center">
                         <span>{language === 'en' ? 'Secure Password' : 'सुरक्षित पासवर्ड'}</span>
+                        {selectedRole === UserRole.ADMIN && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!inputIdentifier || !inputIdentifier.includes('@')) {
+                                alert(language === 'en' ? 'Please supply a valid admin email first.' : 'कृपया पहले एक मान्य व्यवस्थापक ईमेल दर्ज करें।');
+                                return;
+                              }
+                              try {
+                                await sendPasswordReset(inputIdentifier);
+                                alert(language === 'en' ? `Verification email reset successfully triggered for ${inputIdentifier}` : `पासवर्ड सुधार संकेत सफलतापूर्वक ${inputIdentifier} पर भेजा गया!`);
+                              } catch (resetErr: any) {
+                                alert(language === 'en' ? `Failed to trigger reset: ${resetErr.message}` : `संकेत भेजने में त्रुटि: ${resetErr.message}`);
+                              }
+                            }}
+                            className="text-[10px] text-[#D4522A] hover:underline font-bold font-mono"
+                          >
+                            {language === 'en' ? 'Forgot Password?' : 'पासवर्ड भूल गए?'}
+                          </button>
+                        )}
                       </label>
                       <input
                         type="password"

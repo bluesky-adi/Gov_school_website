@@ -51,7 +51,7 @@ export interface UserProfile {
   section?: string;
   dob?: string;
   forcePasswordChange?: boolean;
-  status?: 'Active' | 'Disabled';
+  status?: 'Active' | 'Disabled' | 'Transferred';
 }
 
 export type NoticeCategory = 'Academic' | 'Examination' | 'Scholarship' | 'Admission' | 'Holiday' | 'Urgent';
@@ -98,6 +98,7 @@ export interface StudentProfile {
   rollNo: string;
   nameEn: string;
   nameHi: string;
+  email?: string;
   className: 'Class IX' | 'Class X' | 'Class XI' | 'Class XII';
   section: 'A' | 'B' | 'C';
   fatherNameEn: string;
@@ -126,6 +127,7 @@ export interface TeacherProfile {
   email: string;
   avatarUrl?: string;
   dob?: string;
+  status?: 'Active' | 'Disabled';
 }
 
 export interface TimetableEntry {
