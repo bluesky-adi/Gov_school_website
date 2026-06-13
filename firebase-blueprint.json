@@ -1,0 +1,238 @@
+{
+  "entities": {
+    "Notice": {
+      "title": "Notice",
+      "description": "An announcement or board notice published for the school community.",
+      "type": "object",
+      "properties": {
+        "titleEn": { "type": "string", "description": "Title in English" },
+        "titleHi": { "type": "string", "description": "Title in Hindi" },
+        "contentEn": { "type": "string", "description": "Content in English" },
+        "contentHi": { "type": "string", "description": "Content in Hindi" },
+        "category": { "type": "string", "enum": ["Academic", "Examination", "Scholarship", "Admission", "Holiday", "Urgent"], "description": "Category of notice" },
+        "publishedDate": { "type": "string", "format": "date", "description": "Date of publication (YYYY-MM-DD)" },
+        "expiryDate": { "type": "string", "format": "date", "description": "Date of expiry (YYYY-MM-DD)" },
+        "isUrgent": { "type": "boolean", "description": "Whether the notice is highly urgent" },
+        "isPinned": { "type": "boolean", "description": "Whether the notice is pinned to top" },
+        "pdfUrl": { "type": "string", "description": "Optional PDF URL related to the notice" },
+        "author": { "type": "string", "description": "Name or department of the author" }
+      },
+      "required": ["titleEn", "titleHi", "contentEn", "contentHi", "category", "publishedDate", "isUrgent", "isPinned", "author"]
+    },
+    "StudentProfile": {
+      "title": "StudentProfile",
+      "description": "Profile record for students enrolled in the school.",
+      "type": "object",
+      "properties": {
+        "rollNo": { "type": "string", "description": "Assigned Class Roll Number" },
+        "nameEn": { "type": "string", "description": "Student Name in English" },
+        "nameHi": { "type": "string", "description": "Student Name in Hindi" },
+        "className": { "type": "string", "enum": ["Class IX", "Class X", "Class XI", "Class XII"], "description": "Current grade" },
+        "section": { "type": "string", "enum": ["A", "B", "C"], "description": "Assigned class section" },
+        "fatherNameEn": { "type": "string", "description": "Father's name in English" },
+        "fatherNameHi": { "type": "string", "description": "Father's name in Hindi" },
+        "motherNameEn": { "type": "string", "description": "Mother's name in English" },
+        "motherNameHi": { "type": "string", "description": "Mother's name in Hindi" },
+        "dob": { "type": "string", "format": "date", "description": "Date of Birth" },
+        "category": { "type": "string", "enum": ["General", "OBC", "EBC", "SC", "ST"] },
+        "bankAccountLast4": { "type": "string", "description": "Last 4 digits of bank account for DBT" },
+        "ifscCode": { "type": "string", "description": "Bank IFSC Code" },
+        "medhasoftStatus": { "type": "string", "enum": ["Verified", "Pending Verification", "Rejected", "Not Registered"] },
+        "dbtPaymentStatus": { "type": "string", "enum": ["Payment Disbursed", "In Process", "Aadhaar Account Link Pending", "Details Required"] }
+      },
+      "required": ["rollNo", "nameEn", "nameHi", "className", "section", "fatherNameEn", "fatherNameHi", "motherNameEn", "motherNameHi", "dob", "category", "bankAccountLast4", "ifscCode", "medhasoftStatus", "dbtPaymentStatus"]
+    },
+    "ExamResult": {
+      "title": "ExamResult",
+      "description": "Examinations and test marks results for student profiles.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string", "description": "Reference ID of the StudentProfile" },
+        "examNameEn": { "type": "string", "description": "Exam Name in English" },
+        "examNameHi": { "type": "string", "description": "Exam Name in Hindi" },
+        "academicYear": { "type": "string", "description": "Academic year e.g. 2025-2026" },
+        "totalPercentage": { "type": "number", "description": "Aggregated percentage score" },
+        "grade": { "type": "string", "description": "Assigned Letter Grade" },
+        "resultStatus": { "type": "string", "enum": ["PASS", "PROMOTED", "FAIL"] },
+        "remarksEn": { "type": "string", "description": "Teacher comments in English" },
+        "remarksHi": { "type": "string", "description": "Teacher comments in Hindi" }
+      },
+      "required": ["studentId", "examNameEn", "examNameHi", "academicYear", "totalPercentage", "grade", "resultStatus", "remarksEn", "remarksHi"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Daily attendance marking for student verification.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Present", "Absent", "Leave"] },
+        "className": { "type": "string" },
+        "section": { "type": "string" }
+      },
+      "required": ["studentId", "date", "status", "className", "section"]
+    },
+    "Homework": {
+      "title": "Homework",
+      "description": "Daily homework or assignment files uploaded by teachers.",
+      "type": "object",
+      "properties": {
+        "titleEn": { "type": "string" },
+        "titleHi": { "type": "string" },
+        "descriptionEn": { "type": "string" },
+        "descriptionHi": { "type": "string" },
+        "className": { "type": "string" },
+        "section": { "type": "string" },
+        "subjectEn": { "type": "string" },
+        "subjectHi": { "type": "string" },
+        "assignedDate": { "type": "string", "format": "date" },
+        "dueDate": { "type": "string", "format": "date" },
+        "teacherName": { "type": "string" }
+      },
+      "required": ["titleEn", "titleHi", "descriptionEn", "descriptionHi", "className", "section", "subjectEn", "subjectHi", "assignedDate", "dueDate", "teacherName"]
+    },
+    "StudyMaterial": {
+      "title": "StudyMaterial",
+      "description": "Academic files, PDFs and e-LOTS resources.",
+      "type": "object",
+      "properties": {
+        "titleEn": { "type": "string" },
+        "titleHi": { "type": "string" },
+        "className": { "type": "string" },
+        "subjectEn": { "type": "string" },
+        "subjectHi": { "type": "string" },
+        "descriptionEn": { "type": "string" },
+        "descriptionHi": { "type": "string" },
+        "downloadUrl": { "type": "string" },
+        "fileSize": { "type": "string" },
+        "uploadedDate": { "type": "string", "format": "date" },
+        "isELots": { "type": "boolean" }
+      },
+      "required": ["titleEn", "titleHi", "className", "subjectEn", "subjectHi", "uploadedDate", "isELots"]
+    },
+    "Grievance": {
+      "title": "Grievance",
+      "description": "A grievance, concern, request or feedback ticket filed on the portal.",
+      "type": "object",
+      "properties": {
+        "ticketNo": { "type": "string" },
+        "categoryEn": { "type": "string" },
+        "categoryHi": { "type": "string" },
+        "content": { "type": "string" },
+        "isAnonymous": { "type": "boolean" },
+        "complainantName": { "type": "string" },
+        "complainantPhone": { "type": "string" },
+        "submittedDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["Submitted", "Under Investigation", "Resolved", "Closed"] },
+        "resolutionNoteEn": { "type": "string" },
+        "resolutionNoteHi": { "type": "string" },
+        "resolutionDate": { "type": "string", "format": "date" }
+      },
+      "required": ["ticketNo", "categoryEn", "categoryHi", "content", "isAnonymous", "submittedDate", "status"]
+    },
+    "CertificateRequest": {
+      "title": "CertificateRequest",
+      "description": "Official school certificate requests (Bonafide, TC, etc.).",
+      "type": "object",
+      "properties": {
+        "referenceNo": { "type": "string" },
+        "studentNameEn": { "type": "string" },
+        "studentNameHi": { "type": "string" },
+        "rollNo": { "type": "string" },
+        "className": { "type": "string" },
+        "academicYear": { "type": "string" },
+        "type": { "type": "string", "enum": ["Transfer Certificate", "Bonafide Certificate", "Character Certificate"] },
+        "reasonEn": { "type": "string" },
+        "reasonHi": { "type": "string" },
+        "status": { "type": "string", "enum": ["Applied", "In Process", "Ready for Collection", "Dispatched", "Rejected"] },
+        "appliedDate": { "type": "string", "format": "date" },
+        "completionDate": { "type": "string", "format": "date" },
+        "instructionsEn": { "type": "string" },
+        "instructionsHi": { "type": "string" }
+      },
+      "required": ["referenceNo", "studentNameEn", "studentNameHi", "rollNo", "className", "academicYear", "type", "reasonEn", "reasonHi", "status", "appliedDate"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Role classification and permissions check document for admins or teachers.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The Firebase User UID" },
+        "role": { "type": "string", "enum": ["ADMIN", "TEACHER"], "description": "The administrative role" },
+        "permissions": { "type": "array", "description": "Permissions array" }
+      },
+      "required": ["uid", "role"]
+    },
+    "SchoolSettings": {
+      "title": "SchoolSettings",
+      "description": "Dynamic editable school settings and administrative profiles.",
+      "type": "object",
+      "properties": {
+        "schoolNameEn": { "type": "string" },
+        "schoolNameHi": { "type": "string" },
+        "logo": { "type": "string" },
+        "principalNameEn": { "type": "string" },
+        "principalNameHi": { "type": "string" },
+        "principalDesignationEn": { "type": "string" },
+        "principalDesignationHi": { "type": "string" },
+        "principalMessageEn": { "type": "string" },
+        "principalMessageHi": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "addressEn": { "type": "string" },
+        "addressHi": { "type": "string" },
+        "udise": { "type": "string" },
+        "bsebCode": { "type": "string" },
+        "bsebMatricCode": { "type": "string" },
+        "bsebInterCode": { "type": "string" },
+        "teacherCount": { "type": "number" },
+        "studentCount": { "type": "number" },
+        "passRate": { "type": "string" },
+        "establishmentYear": { "type": "number" }
+      },
+      "required": ["schoolNameEn", "schoolNameHi", "logo", "principalNameEn", "principalNameHi", "principalDesignationEn", "principalDesignationHi", "principalMessageEn", "principalMessageHi", "phone", "email", "addressEn", "addressHi", "udise", "bsebCode", "teacherCount", "studentCount", "passRate", "establishmentYear"]
+    }
+  },
+  "firestore": {
+    "school_settings": {
+      "schema": "SchoolSettings",
+      "description": "School administration custom profiles and metrics"
+    },
+    "notices": {
+      "schema": "Notice",
+      "description": "Global notices board collection"
+    },
+    "students": {
+      "schema": "StudentProfile",
+      "description": "Enrolled students list (contains bank account & contact info, read should be protected)"
+    },
+    "examResults": {
+      "schema": "ExamResult",
+      "description": "Detailed marks lists of students"
+    },
+    "attendance": {
+      "schema": "AttendanceRecord",
+      "description": "Daily attendance database tracking"
+    },
+    "homework": {
+      "schema": "Homework",
+      "description": "Homework / assignments collection"
+    },
+    "studyMaterials": {
+      "schema": "StudyMaterial",
+      "description": "Bilingual syllabus notes and e-LOTS PDFs library"
+    },
+    "grievances": {
+      "schema": "Grievance",
+      "description": "Official grievances filed by community"
+    },
+    "certificates": {
+      "schema": "CertificateRequest",
+      "description": "Requests for educational verification certificates"
+    },
+    "admins": {
+      "schema": "AdminRecord",
+      "description": "Administrative rules registry"
+    }
+  }
+}

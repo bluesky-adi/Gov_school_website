@@ -1,0 +1,6 @@
+{
+  "name": "Omar Girls High School Portal",
+  "description": "Official school management platform and public website for Omar Girls High School, Bihar, India. Supported in English and Hindi, optimized for low bandwidth and mobile devices.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

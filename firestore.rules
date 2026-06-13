@@ -1,0 +1,242 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net default-deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- REUSABLE UTILITIES & ATTRIBUTE-BASED ACCESS CONTROL HELPERS ---
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == "ADMIN") ||
+        request.auth.token.email == "omarbalika132@gmail.com" ||
+        request.auth.token.email == "aadiyapriyam142005@gmail.com"
+      );
+    }
+
+    function isTeacher() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == "TEACHER"
+      );
+    }
+
+    function isStaff() {
+      return isSignedIn() && (
+        isAdmin() || isTeacher()
+      );
+    }
+
+    function isOwnerStudent(rollNo) {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rollNo == rollNo;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- COLLECTION MATCHES & VALIDATIONS ---
+
+    // 1. Notices Collection
+    match /notices/{noticeId} {
+      allow read: if true;
+      allow create: if isStaff() && isValidNotice(request.resource.data);
+      allow update: if isStaff() && isValidNotice(request.resource.data);
+      allow delete: if isStaff();
+    }
+
+    function isValidNotice(data) {
+      return data.keys().hasAll(['titleEn', 'titleHi', 'contentEn', 'contentHi', 'category', 'publishedDate', 'isUrgent', 'isPinned', 'author']) 
+        && data.titleEn is string && data.titleEn.size() <= 200
+        && data.titleHi is string && data.titleHi.size() <= 200
+        && data.contentEn is string && data.contentEn.size() <= 4000
+        && data.contentHi is string && data.contentHi.size() <= 4000
+        && data.category is string
+        && data.publishedDate is string
+        && data.isUrgent is bool
+        && data.isPinned is bool
+        && data.author is string;
+    }
+
+    // 2. Students Collection
+    match /students/{studentId} {
+      allow read: if isSignedIn() && (isStaff() || studentId == request.auth.uid);
+      allow write: if isStaff();
+    }
+
+    // 3. Exam Results Collection
+    match /examResults/{resultId} {
+      allow read: if isSignedIn() && (isStaff() || resource.data.studentId == request.auth.uid);
+      allow create, update, delete: if isStaff();
+    }
+
+    // 4. Attendance Records
+    match /attendance/{attendanceId} {
+      allow read: if isSignedIn() && (isStaff() || resource.data.studentId == request.auth.uid);
+      allow create, update, delete: if isStaff();
+    }
+
+    function isValidAttendance(data) {
+      return data.keys().hasAll(['studentId', 'date', 'status', 'className', 'section'])
+        && data.studentId is string
+        && data.date is string
+        && data.status is string
+        && data.className is string
+        && data.section is string;
+    }
+
+    // 5. Homework Collection
+    match /homework/{homeworkId} {
+      allow read: if true;
+      allow create: if isStaff() && isValidHomework(request.resource.data);
+      allow update: if isStaff() && isValidHomework(request.resource.data);
+      allow delete: if isStaff();
+    }
+
+    function isValidHomework(data) {
+      return data.keys().hasAll(['titleEn', 'titleHi', 'descriptionEn', 'descriptionHi', 'className', 'section', 'subjectEn', 'subjectHi', 'assignedDate', 'dueDate', 'teacherName'])
+        && data.titleEn is string && data.titleEn.size() <= 200
+        && data.titleHi is string && data.titleHi.size() <= 200
+        && data.descriptionEn is string
+        && data.descriptionHi is string
+        && data.className is string
+        && data.section is string
+        && data.subjectEn is string
+        && data.subjectHi is string
+        && data.assignedDate is string
+        && data.dueDate is string
+        && data.teacherName is string;
+    }
+
+    // 6. Study Materials Collection
+    match /studyMaterials/{materialId} {
+      allow read: if true;
+      allow create: if isStaff() && isValidStudyMaterial(request.resource.data);
+      allow update: if isStaff() && isValidStudyMaterial(request.resource.data);
+      allow delete: if isStaff();
+    }
+
+    function isValidStudyMaterial(data) {
+      return data.keys().hasAll(['titleEn', 'titleHi', 'className', 'subjectEn', 'subjectHi', 'uploadedDate', 'isELots'])
+        && data.titleEn is string && data.titleEn.size() <= 200
+        && data.titleHi is string && data.titleHi.size() <= 200
+        && data.className is string
+        && data.subjectEn is string
+        && data.subjectHi is string
+        && data.uploadedDate is string
+        && data.isELots is bool;
+    }
+
+    // 7. Grievances Collection
+    match /grievances/{grievanceId} {
+      allow get: if true; // Anyone can get dynamic state of their single grievance
+      allow list: if isStaff(); // Only staff can browse/list the grievance database
+      allow create: if isValidGrievance(request.resource.data);
+      allow update: if isStaff() && isValidGrievance(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    function isValidGrievance(data) {
+      return data.keys().hasAll(['ticketNo', 'categoryEn', 'categoryHi', 'content', 'isAnonymous', 'submittedDate', 'status'])
+        && data.ticketNo is string
+        && data.categoryEn is string
+        && data.categoryHi is string
+        && data.content is string && data.content.size() <= 5000
+        && data.isAnonymous is bool
+        && data.status is string
+        && data.submittedDate is string;
+    }
+
+    // 8. Certificate Requests Collection
+    match /certificates/{requestId} {
+      allow get: if true; // Public track certificate by reference
+      allow list: if isSignedIn() && (isStaff() || isOwnerStudent(resource.data.rollNo));
+      allow create: if isSignedIn() && isValidCertificateRequest(request.resource.data);
+      allow update: if isSignedIn() && (
+        isStaff() || (
+          isOwnerStudent(resource.data.rollNo) &&
+          resource.data.status == 'Applied' &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reasonEn', 'reasonHi', 'type', 'className', 'academicYear'])
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    function isValidCertificateRequest(data) {
+      return data.keys().hasAll(['referenceNo', 'studentNameEn', 'studentNameHi', 'rollNo', 'className', 'academicYear', 'type', 'reasonEn', 'reasonHi', 'status', 'appliedDate'])
+        && data.referenceNo is string
+        && data.studentNameEn is string
+        && data.studentNameHi is string
+        && data.rollNo is string
+        && data.className is string
+        && data.academicYear is string
+        && data.type is string
+        && data.reasonEn is string && data.reasonEn.size() <= 2000
+        && data.reasonHi is string && data.reasonHi.size() <= 2000
+        && data.status is string
+        && data.appliedDate is string;
+    }
+
+    // 9. Admins/Teachers Privileges Collection
+    match /admins/{uid} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdmin() || (
+        isSignedIn() && request.auth.uid == uid && (
+          request.auth.token.email == "omarbalika132@gmail.com"
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 10. Users Profiles Collection
+    match /users/{userId} {
+      allow read: if isSignedIn() && (isStaff() || request.auth.uid == userId);
+      allow create, update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // 11. Teachers Profiles Listing
+    match /teachers/{teacherId} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // 12. Class Timetable Listing
+    match /timetable/{id} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // 13. Library Book Catalog
+    match /books/{id} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // 14. Scholarship Schemes List
+    match /schemes/{id} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    // 15. Dynamic School Settings Collection
+    match /school_settings/{id} {
+      allow read: if true;
+      allow write, update: if isAdmin();
+    }
+  }
+}

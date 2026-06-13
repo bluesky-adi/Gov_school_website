@@ -1,0 +1,342 @@
+import {
+  Notice,
+  ScholarshipScheme,
+  StudentProfile,
+  TeacherProfile,
+  TimetableEntry,
+  ExamResult,
+  Homework,
+  StudyMaterial,
+  Book,
+  FAQItem,
+  Grievance,
+  CertificateRequest
+} from './types.ts';
+
+// Initial bilingual Seed notices
+export const INITIAL_NOTICES: Notice[] = [
+  {
+    id: 'n1',
+    titleEn: 'Admissions Open for Class XI Science & Arts (2026-28)',
+    titleHi: 'कक्षा XI विज्ञान एवं कला (2026-28) के लिए नामांकन प्रारंभ',
+    contentEn: 'Highly urgent notice: Registration for Class 11 is now open on the OFSS Bihar portal. Submit direct school options matching Omar Girls High School, Bihar. Eligible girls must upload their Class 10 marksheet, caste certificate, and provisional certificate.',
+    contentHi: 'अति आवश्यक सूचना: OFSS बिहार पोर्टल पर कक्षा 11वीं के लिए पंजीकरण खुल गया है। उमड़ गर्ल्स हाई स्कूल, बिहार का विकल्प चुनें। योग्य छात्राएं अपनी कक्षा 10 की अंकतालिका, जाति प्रमाण पत्र और अनंतिम प्रमाण पत्र अवश्य अपलोड करें।',
+    category: 'Admission',
+    publishedDate: '2026-06-08',
+    isUrgent: true,
+    isPinned: true,
+    author: 'Principal Desk'
+  },
+  {
+    id: 'n2',
+    titleEn: 'Medhasoft DBT Scholarship Data Correction Portal Opened',
+    titleHi: 'मेधासॉफ्ट डीबीटी छात्रवृत्ति डेटा सुधार पोर्टल खुला',
+    contentEn: 'Urgent reminder for Parents: If your daughter\'s Aadhaar card isn\'t linked to her bank account, or if there is a name mismatch in Medhasoft (Bihar DBT), please send bank verification documents to the school head office by June 25, 2026.',
+    contentHi: 'अभिभावकों के लिए आवश्यक सूचना: यदि आपकी पुत्री का आधार कार्ड बैंक खाते से लिंक नहीं है, या मेधासॉफ्ट (बिहार डीबीटी) में नाम का मिलान नहीं हो रहा है, तो कृपया 25 जून 2026 तक विद्यालय मुख्य कार्यालय में बैंक सत्यापन दस्तावेज जमा करें।',
+    category: 'Scholarship',
+    publishedDate: '2026-06-10',
+    expiryDate: '2026-06-25',
+    isUrgent: true,
+    isPinned: true,
+    author: 'Nodal Officer Scholarship'
+  },
+  {
+    id: 'n3',
+    titleEn: 'Distribution of Free Bicycle and Uniform DBT Allowances',
+    titleHi: 'निःशुल्क साइकिल एवं पोशाक योजना (डीबीटी) राशि वितरण',
+    contentEn: 'Scholarship checks and DBT transfers for Class IX students have been initiated. Girls with an attendance of 75% or higher only are eligible. Re-verify your registered bank IFSC codes with the accounts desk.',
+    contentHi: 'कक्षा नौवीं की छात्राओं के लिए साइकिल एवं पोशाक राशि का डीबीटी हस्तांतरण शुरू कर दिया गया है। केवल 75% या अधिक उपस्थिति वाली छात्राएं ही पात्र हैं। अपने पंजीकृत बैंक आईएफएससी कोड की पुनः जांच कर लें।',
+    category: 'Scholarship',
+    publishedDate: '2026-05-30',
+    isUrgent: false,
+    isPinned: false,
+    author: 'Accounts Dept'
+  },
+  {
+    id: 'n4',
+    titleEn: 'Quarterly Terminal Assessment Exams Schedule (July 2026)',
+    titleHi: 'त्रैमासिक सावधिक मूल्यांकन परीक्षा कार्यक्रम (जुलाई 2026)',
+    contentEn: 'The class test examinations for Class IX and X will commence from July 5th. Timetables are shared below. Complete syllabus assignments by this weekend.',
+    contentHi: 'कक्षा नौवीं और दसवीं की वर्ग मूल्यांकन परीक्षा 5 जुलाई से शुरू होगी। समय-सारणी नीचे पोर्टल पर साझा की गई है। इस सप्ताह के अंत तक सभी पाठ्यक्रम असाइनमेंट पूरे कर लें।',
+    category: 'Examination',
+    publishedDate: '2026-06-05',
+    expiryDate: '2026-07-15',
+    isUrgent: false,
+    isPinned: false,
+    author: 'Exam Coordinator'
+  },
+  {
+    id: 'n5',
+    titleEn: 'Summer Vacation & Special Guidance Classes Notice',
+    titleHi: 'ग्रीष्मकालीन अवकाश एवं विशेष निर्देशन वर्ग सूचना',
+    contentEn: 'School will observe summer holidays from June 12th to June 28th. However, special board preparation guidelines classes for girls of Class X and XII will be held online or optional physical sessions in Morning Shifts (6:30 AM to 9:30 AM).',
+    contentHi: 'विद्यालय में 12 जून से 28 जून तक ग्रीष्मकालीन अवकाश रहेगा। हालांकि, कक्षा 10वीं और 12वीं की छात्राओं के लिए बोर्ड परीक्षा मार्गदर्शन वर्ग सुबह की पाली (6:30 बजे से 9:30 बजे) में आयोजित किया जाएगा।',
+    category: 'Holiday',
+    publishedDate: '2026-06-10',
+    isUrgent: false,
+    isPinned: false,
+    author: 'Principal'
+  }
+];
+
+// Bihar schemes models
+export const SCHOLARSHIPS_AND_SCHEMES: ScholarshipScheme[] = [
+  {
+    id: 'sch1',
+    titleEn: 'Mukhyamantri Balika Cycle Yojana',
+    titleHi: 'मुख्यमंत्री बालिका साइकिल योजना',
+    category: 'Bicycle',
+    descriptionEn: 'Bihar governments pioneer scheme to promote girls\' secondary education by providing Rs. 3,000 directly to girls enrolled in Class IX for purchasing a bicycle.',
+    descriptionHi: 'बालिकाओं की माध्यमिक शिक्षा को बढ़ावा देने के लिए बिहार सरकार की इस अग्रणी योजना के तहत कक्षा नौवीं में नामांकित लड़कियों को साइकिल खरीदने के लिए सीधे 3,000 रुपये प्रदान किए जाते हैं।',
+    eligibilityEn: 'Girl students regularly enrolled in Class IX of Government school or Government aided high schools with minimum 75% school attendance.',
+    eligibilityHi: 'सरकारी स्कूल या सरकारी सहायता प्राप्त हाई स्कूल की कक्षा नौवीं में नियमित रूप से नामांकित छात्राएं जिनकी उपस्थिति कम से कम 75% हो।',
+    benefitsEn: 'Direct Benefit Transfer (DBT) of ₹3,000 in student\'s/parent\'s joint bank account linked with Medhasoft portal.',
+    benefitsHi: 'मेधासॉफ्ट पोर्टल से लिंक छात्र/अभिभावक के संयुक्त बैंक खाते में ₹3,000 का डीबीटी (Direct Benefit Transfer)।',
+    deadline: '2026-09-30',
+    documentsEn: ['Aadhaar Card (Student)', 'Caste Certificate (if non-general)', 'Bank Passbook Front Page', '75% Attendance Verification', 'Medhasoft Registration Slip'],
+    documentsHi: ['आधार कार्ड (छात्रा)', 'जाति प्रमाण पत्र (सामान्य श्रेणी को छोड़कर)', 'बैंक पासबुक का मुख्य पृष्ठ', '75% उपस्थिति सत्यापन', 'मेधासॉफ्ट पंजीकरण रसीद'],
+    contactPerson: 'Bicycle Department In-Charge',
+    contactDesignation: 'Bicycle Nodal Officer',
+    medhasoftInfoEn: 'Synchronized on Medhasoft Class IX database.',
+    medhasoftInfoHi: 'मेधासॉफ्ट क्लास IX डेटाबेस पर सिंक किया गया है।'
+  },
+  {
+    id: 'sch2',
+    titleEn: 'Mukhyamantri Balika Poshak Yojana (Uniform Scheme)',
+    titleHi: 'मुख्यमंत्री बालिका पोशाक योजना (यूनिफॉर्म स्कीम)',
+    category: 'Uniform',
+    descriptionEn: 'Provides uniforms allowance for school girls to reduce dropout rates and ensure visual uniformity.',
+    descriptionHi: 'छात्राओं के स्कूल छोड़ने की दर को कम करने और पोशाक समानता सुनिश्चित करने के लिए पोशाक भत्ता प्रदान किया जाता है।',
+    eligibilityEn: 'All girls student enrolled in Class IX to XII in Omar Girls High School, Bihar.',
+    eligibilityHi: 'उमर गर्ल्स हाई स्कूल, बिहार में कक्षा नौवीं से बारहवीं तक नामांकित सभी छात्राएं।',
+    benefitsEn: 'Class IX-X girls receive ₹1,000 and Class XI-XII girls receive ₹1,500 annually for buying uniforms.',
+    benefitsHi: 'कक्षा नौवीं-दसवीं की छात्राओं को प्रतिवर्ष ₹1,000 एवं कक्षा ग्यारहवीं-बारहवीं की छात्राओं को ₹1,500 की पोशाक राशि प्रदान की जाती है।',
+    deadline: '2026-08-15',
+    documentsEn: ['Aadhaar Card', 'Admission Receipt', 'Bank account linked with Aadhaar & Seeded block'],
+    documentsHi: ['आधार कार्ड', 'नामांकन रसीद', 'आधार और मेधासॉफ्ट से जुड़ा बैंक खाता'],
+    contactPerson: 'Uniform Welfare Coordinator',
+    contactDesignation: 'Uniform Scheme In-Charge'
+  },
+  {
+    id: 'sch3',
+    titleEn: 'Mukhyamantri Balika Kishori Swasthya Karyakram',
+    titleHi: 'मुख्यमंत्री बालिका किशोरी स्वास्थ्य कार्यक्रम',
+    category: 'Mukhyamantri',
+    descriptionEn: 'Promotes health and personal hygiene among school-going adolescent girls by providing monetary assistance directly.',
+    descriptionHi: 'विद्यालय जाने वाली किशोरियों के स्वास्थ्य और व्यक्तिगत स्वच्छता को बढ़ावा देने के लिए प्रत्यक्ष मौद्रिक सहायता प्रदान की जाती है।',
+    eligibilityEn: 'All adolescent girls enrolled in Class IX to XII of the high school.',
+    eligibilityHi: 'हाई स्कूल की कक्षा नौवीं से बारहवीं तक नामांकित सभी किशोरियां।',
+    benefitsEn: 'Quarterly financial assistance of ₹300 per annum for sanitary health & hygiene distributed through DBT.',
+    benefitsHi: 'डीबीटी के माध्यम से स्वच्छता स्वास्थ्य के लिए प्रतिवर्ष ₹300 की वित्तीय सहायता।',
+    deadline: '2026-10-31',
+    documentsEn: ['Aadhaar ID', 'Class Roll verification entry'],
+    documentsHi: ['आधार आईडी', 'कक्षा रोल नंबर सत्यापन'],
+    contactPerson: 'School Health Coordinator',
+    contactDesignation: 'School Health In-charge'
+  },
+  {
+    id: 'sch4',
+    titleEn: 'Mukhyamantri Balika Protsahan Yojana (Medhavriti - 10th/12th Pass)',
+    titleHi: 'मुख्यमंत्री बालिका प्रोत्साहन योजना (मेधावृत्ति - 10वीं/12वीं पास)',
+    category: 'Medhavriti',
+    descriptionEn: 'Bihar State scholarship reward schemes for girl students passing Matriculation (10th) with First Division or Intermediate (12th) examinations to aid higher studies.',
+    descriptionHi: 'मैट्रिक (10वीं) परीक्षा प्रथम श्रेणी या इंटरमीडिएट (12वीं) परीक्षा उत्तीर्ण करने वाली छात्राओं को आगे की पढ़ाई हेतु बिहार सरकार की प्रोत्साहन राशि योजना।',
+    eligibilityEn: 'Girl students passing Bihar School Examination Board (BSEB) Matriculation with First Division or Intermediate (unmarried girls) of Bihar board.',
+    eligibilityHi: 'बिहार विद्यालय परीक्षा समिति (BSEB) मैट्रिक परीक्षा प्रथम श्रेणी से या इंटरमीडिएट उत्तीर्ण करने वाली (अविवाहित) छात्राएं।',
+    benefitsEn: '₹10,000 reward for matriculation first-class pass; ₹25,000 for unmarried girls passing Intermediate exams.',
+    benefitsHi: 'मैट्रिक प्रथम श्रेणी से पास होने पर ₹10,000; इंटरमीडिएट परीक्षा उत्तीर्ण करने वाली अविवाहित लड़कियों को ₹25,000 की राशि।',
+    deadline: '2026-07-31',
+    documentsEn: ['Aadhaar Certificate', 'BSEB Board Marksheet', 'Caste Certificate', 'Domicile or Residence Certificate of Bihar', 'Income Certificate', 'Joint/Individual Bank account in Bihar branch'],
+    documentsHi: ['आधार प्रमाण पत्र', 'BSEB बोर्ड अंकतालिका', 'जाति प्रमाण पत्र', 'बिहार राज्य निवास प्रमाण पत्र', 'आय प्रमाण पत्र', 'बिहार शाखा में व्यक्तिगत बैंक खाता'],
+    contactPerson: 'Principal Head Office',
+    contactDesignation: 'Headmistress / Principal'
+  }
+];
+
+// Initial seeded students database for low-end logins
+export const INITIAL_STUDENTS: StudentProfile[] = [];
+
+// Initial seeded teachers
+export const INITIAL_TEACHERS: TeacherProfile[] = [
+  {
+    id: 't1',
+    nameEn: 'Smt. S. Kumari',
+    nameHi: 'श्रीमती एस. कुमारी',
+    designationEn: 'Lecturer in Sanskrit',
+    designationHi: 'व्याख्याता संस्कृत',
+    qualificationEn: 'M.A., M.Ed, 15+ years experience in Bihar Education Services',
+    qualificationHi: 'एम.ए., एम.एड, बिहार शिक्षा सेवा में 15+ वर्षों का अनुभव',
+    subjectsEn: ['Sanskrit', 'Moral Science'],
+    subjectsHi: ['संस्कृत', 'नैतिक विज्ञान'],
+    email: 's.kumari.teach@gmail.com'
+  },
+  {
+    id: 't2',
+    nameEn: 'Dr. R. S. Singh',
+    nameHi: 'डॉ आर. एस. सिंह',
+    designationEn: 'Senior Lecturer - Mathematics',
+    designationHi: 'वरिष्ठ प्रवक्ता - गणित',
+    qualificationEn: 'Ph.D in Applied Mathematics, NET qualified',
+    qualificationHi: 'एप्लाइड गणित में पी.एच.डी, नेट योग्य',
+    subjectsEn: ['Advanced Mathematics', 'Physics'],
+    subjectsHi: ['उच्च गणित', 'भौतिकी'],
+    email: 'r.singh.teach@gmail.com'
+  },
+  {
+    id: 't3',
+    nameEn: 'Smt. Anupama Verma',
+    nameHi: 'श्रीमती अनुपमा वर्मा',
+    designationEn: 'Trained Graduate Teacher - Science',
+    designationHi: 'प्रशिक्षित स्नातक शिक्षक - विज्ञान',
+    qualificationEn: 'B.Sc. Chemistry (Hons), B.Ed (BHU)',
+    qualificationHi: 'बी.एससी. रसायन विज्ञान (ऑनर्स), बी.एड (बीएचयू)',
+    subjectsEn: ['Chemistry', 'Biology'],
+    subjectsHi: ['रसायन विज्ञान', 'जीव विज्ञान'],
+    email: 'anupama.verma.bihar@gmail.com'
+  },
+  {
+    id: 't4',
+    nameEn: 'Shri Rakesh Ranjan Prasad',
+    nameHi: 'श्री राकेश रंजन प्रसाद',
+    designationEn: 'PGT Social Sciences & India History',
+    designationHi: 'पीजीटी सामाजिक विज्ञान एवं भारतीय इतिहास',
+    qualificationEn: 'M.A. History, B.Ed (Patna University)',
+    qualificationHi: 'एम.ए. इतिहास, बी.एड (पटना विवि)',
+    subjectsEn: ['History', 'Civics', 'Geography'],
+    subjectsHi: ['इतिहास', 'नागरिक शास्त्र', 'भूगोल'],
+    email: 'rakesh.ranjan.hist@gmail.com'
+  }
+];
+
+// Initial school FAQs
+export const PORTAL_FAQS: FAQItem[] = [
+  {
+    questionEn: 'How to register students on Medhasoft Bihar DBT portal?',
+    questionHi: 'मेधासॉफ्ट बिहार डीबीटी पोर्टल पर छात्रा का पंजीकरण कैसे करें?',
+    answerEn: 'The school administration directly uploads valid student registry details on the Medhasoft portal. Parents must submit Aadhaar matching certificates and a bank savings passbook that is Aadhaar-status active.',
+    answerHi: 'विद्यालय प्रशासन योग्य छात्राओं की प्रविष्टि सीधे मेधासॉफ्ट पोर्टल पर अपलोड करता है। अभिभावकों को आधार कार्ड और बैंक बचत पासबुक जमा करनी होगी जो आधार-सीडेड होनी चाहिए।'
+  },
+  {
+    questionEn: 'What is the required school attendance percentage for Bihar government scholarships?',
+    questionHi: 'बिहार सरकार की छात्रवृत्ति योजनाओं के लिए न्यूनतम कितनी विद्यालय उपस्थिति आवश्यक है?',
+    answerEn: 'As per direct state rules, girls must maintain a minimum of 75% class attendance in each term to claim Uniforms, Bicycles, and Medhavriti scholarship benefits.',
+    answerHi: 'राज्य सरकार के प्रत्यक्ष निर्देशानुसार, पोशाक, साइकिल और मेधावृत्ति छात्रवृत्ति का लाभ उठाने के लिए छात्राओं की विद्यालय में ७५% उपस्थिति अनिवार्य है।'
+  },
+  {
+    questionEn: 'How can students submit an application for an official School Leaving Certificate/Character Cert?',
+    questionHi: 'यूनिवर्सिटी/उच्च शिक्षा के लिए विद्यालय स्थानांतरण प्रमाण-पत्र (टी.सी.) या आचरण प्रमाण-पत्र कैसे प्राप्त करें?',
+    answerEn: 'You can submit an online request directly via the "Certificate Center" tab inside the portal. Upload final matriculation/intermediate marksheet and school enrollment ledger details. Normal processing time is 4 to 7 working days.',
+    answerHi: 'आप इस पोर्टल के भीतर "सर्टिफिकेट सेंटर" टैब के माध्यम से ऑनलाइन आवेदन कर सकते हैं। इसके बाद ७ दिनों के भीतर प्रधानाचार्या के कार्यालय से प्रमाणपत्र संकलित किया जा सकता है।'
+  },
+  {
+    questionEn: 'What is the e-LOTS Bihar platform integrated in our Library section?',
+    questionHi: 'पुस्तकालय खंड में एकीकृत ई-लॉट्स (e-LOTS) बिहार मंच क्या है?',
+    answerEn: 'e-LOTS (electronic Library of Teachers and Students) from Bihar Education Project Council delivers e-textbooks containing video lectures, interactive test mocks, and teachers instruction resources for primary and high schools.',
+    answerHi: 'ई-लॉट्स (e-LOTS) बिहार शिक्षा परियोजना परिषद का डिजिटल मंच है जो पाठ्यपुस्तकों, विषयवार वीडियो व्याख्यानों और ऑनलाइन शैक्षिक संसाधनों तक तुरंत पहुंच प्रदान करता है।'
+  }
+];
+
+// Initial Timetable blocks
+export const INITIAL_TIMETABLE: TimetableEntry[] = [
+  { id: 'tt1', className: 'Class X', section: 'A', day: 'Monday', period: 1, time: '09:00 AM - 09:45 AM', subjectEn: 'Mathematics', subjectHi: 'गणित', teacherEn: 'Dr. R. S. Singh', teacherHi: 'डॉ आर. एस. सिंह' },
+  { id: 'tt2', className: 'Class X', section: 'A', day: 'Monday', period: 2, time: '09:45 AM - 10:30 AM', subjectEn: 'Chemistry', subjectHi: 'रसायन विज्ञान', teacherEn: 'Smt. Anupama Verma', teacherHi: 'श्रीमती अनुपमा वर्मा' },
+  { id: 'tt3', className: 'Class X', section: 'A', day: 'Monday', period: 3, time: '10:30 AM - 11:15 AM', subjectEn: 'Sanskrit', subjectHi: 'संस्कृत', teacherEn: 'Smt. S. Kumari', teacherHi: 'श्रीमती एस. कुमारी' },
+  { id: 'tt4', className: 'Class X', section: 'A', day: 'Monday', period: 4, time: '11:15 AM - 12:00 PM', subjectEn: 'History', subjectHi: 'इतिहास', teacherEn: 'Shri Rakesh Ranjan Prasad', teacherHi: 'श्री राकेश रंजन प्रसाद' },
+  { id: 'tt5', className: 'Class X', section: 'A', day: 'Monday', period: 5, time: '12:30 PM - 01:15 PM', subjectEn: 'English Grammar', subjectHi: 'अंग्रेजी व्याकरण', teacherEn: 'Smt. Shashi Rekha', teacherHi: 'श्रीमती शशी रेखा' },
+  { id: 'tt6', className: 'Class X', section: 'A', day: 'Tuesday', period: 1, time: '09:00 AM - 09:45 AM', subjectEn: 'Biology', subjectHi: 'जीव विज्ञान', teacherEn: 'Smt. Anupama Verma', teacherHi: 'श्रीमती अनुपमा वर्मा' },
+  { id: 'tt7', className: 'Class X', section: 'A', day: 'Tuesday', period: 2, time: '09:45 AM - 10:30 AM', subjectEn: 'Mathematics', subjectHi: 'गणित', teacherEn: 'Dr. R. S. Singh', teacherHi: 'डॉ आर. एस. सिंह' }
+];
+
+// Initial Exam Results
+export const INITIAL_EXAM_RESULTS: ExamResult[] = [];
+
+// Initial Homework list
+export const INITIAL_HOMEWORK: Homework[] = [
+  {
+    id: 'hw1',
+    titleEn: 'Trigonometry Formula & Identity Sheet Exercise 3.2',
+    titleHi: 'त्रिकोणमिति सूत्र एवं पहचान सूची अभ्यास 3.2',
+    descriptionEn: 'Solve all problems from BSEB Class X syllabus mathematics textbook page 112. Explain complementary angle derivations.',
+    descriptionHi: 'बिहार बोर्ड दसवीं गणित पाठ्यपुस्तक के पृष्ठ ११२ के सभी प्रश्नों को हल करें। पूरक कोणों के व्युत्पन्नों को स्पष्ट करें।',
+    className: 'Class X',
+    section: 'A',
+    subjectEn: 'Mathematics',
+    subjectHi: 'गणित',
+    assignedDate: '2026-06-10',
+    dueDate: '2026-06-15',
+    teacherName: 'Dr. R. S. Singh'
+  },
+  {
+    id: 'hw2',
+    titleEn: 'Chemical Reactions and Equations balanced formulas',
+    titleHi: 'रासायनिक अभिक्रियाएँ एवं समीकरण संतुलित सूत्र',
+    descriptionEn: 'Complete the balancing equation worksheet. Explain thermal decomposition reactions.',
+    descriptionHi: 'संतुलित रासायनिक समीकरण कार्यपत्रक पूरा करें। तापीय अपघटन अभिक्रियाओं की व्याख्या करें।',
+    className: 'Class X',
+    section: 'A',
+    subjectEn: 'Chemistry',
+    subjectHi: 'रसायन विज्ञान',
+    assignedDate: '2026-06-09',
+    dueDate: '2026-06-14',
+    teacherName: 'Smt. A. Verma'
+  }
+];
+
+// Study materials database pointing to Bihar State Board and e-LOTS portal topics
+export const INITIAL_STUDY_MATERIALS: StudyMaterial[] = [
+  {
+    id: 'sm1',
+    titleEn: 'GoDih e-Textbook: Class X Vigyan (Science) BSEB',
+    titleHi: 'गोडीह ई-पुस्तक: कक्षा दसवीं विज्ञान (BSTBPC बिहार)',
+    className: 'Class X',
+    subjectEn: 'Science',
+    subjectHi: 'विज्ञान',
+    descriptionEn: 'Official digital book copy of Bihar State Textbook Publishing Corp, containing chapter-wise explanations and objective board questions.',
+    descriptionHi: 'बिहार स्टेट टेक्स्टबुक पब्लिशिंग कॉर्प की आधिकारिक डिजिटल पुस्तक, वस्तुनिष्ठ प्रश्नों और परीक्षा गाइड के साथ।',
+    downloadUrl: 'http://bepce-lots.bihar.gov.in',
+    fileSize: '8.4 MB',
+    uploadedDate: '2026-05-12',
+    isELots: true
+  },
+  {
+    id: 'sm2',
+    titleEn: 'Interactive Animation: Human Circulatory System Video Guidance',
+    titleHi: 'एनिमेटेड व्याख्यान: मानव परिसंचरण तंत्र वीडियो निर्देश',
+    className: 'Class X',
+    subjectEn: 'Biology',
+    subjectHi: 'जीव विज्ञान',
+    descriptionEn: 'Linked from DIKSHA Bihar web portal. Virtual organ lab explanation of heart valves functioning.',
+    descriptionHi: 'दीक्षा बिहार वेब पोर्टल से संबद्ध। हृदय कपाटों (वाल्वों) के कार्य करने की वर्चुअल व्याख्या।',
+    downloadUrl: 'https://diksha.gov.in',
+    fileSize: 'Video Link',
+    uploadedDate: '2026-06-02',
+    isELots: false
+  },
+  {
+    id: 'sm3',
+    titleEn: 'Sanskrit Grammar - Sandhi Rules and Examples PDF',
+    titleHi: 'संस्कृत व्याकरण - संधि के नियम एवं प्रमुख सूत्र पीडीएफ',
+    className: 'Class IX',
+    subjectEn: 'Sanskrit',
+    subjectHi: 'संस्कृत',
+    descriptionEn: 'Handwritten notes compiled by Principal Desk for quick board references.',
+    descriptionHi: 'प्रधानाध्यापिका कार्यालय द्वारा त्वरित बोर्ड संदर्भ के लिए संकलित हस्तलिखित नोट्स।',
+    downloadUrl: '#',
+    fileSize: '1.2 MB',
+    uploadedDate: '2026-06-09',
+    isELots: false
+  }
+];
+
+// Initial school books
+export const INITIAL_BOOKS: Book[] = [
+  { id: 'b1', titleEn: 'Matric Algebra and Geometry BSEB Guide', titleHi: 'मैट्रिक बीजगणित एवं रेखागणित बीएसईबी गाइड', authorEn: 'Prof. K.C. Sinha', authorHi: 'प्रो. के.सी. सिन्हा', categoryEn: 'Mathematics', categoryHi: 'गणित', accessionNo: 'M-1029', isAvailable: true, shelfLocation: 'Row A - Shelf 3' },
+  { id: 'b2', titleEn: 'Objective General Science for Board Exams', titleHi: 'बोर्ड परीक्षाओं के लिए वस्तुनिष्ठ सामान्य विज्ञान', authorEn: 'S. Chand Publications', authorHi: 'एस. चांद पब्लिकेशन्स', categoryEn: 'Science', categoryHi: 'विज्ञान', accessionNo: 'S-4011', isAvailable: true, shelfLocation: 'Row C - Shelf 2' },
+  { id: 'b3', titleEn: 'India and the Contemporary World History', titleHi: 'भारत और समकालीन विश्व इतिहास (NCERT)', authorEn: 'NCERT Bihar Board', authorHi: 'एनसीईआरटी बिहार बोर्ड', categoryEn: 'History', categoryHi: 'इतिहास', accessionNo: 'H-2041', isAvailable: false, shelfLocation: 'Row B - Shelf 1' }
+];
+
+// Initial complaints / Grievances
+export const INITIAL_GRIEVANCES: Grievance[] = [];
+
+// Initial Certificates
+export const INITIAL_CERTIFICATE_REQUESTS: CertificateRequest[] = [];
